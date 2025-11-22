@@ -327,7 +327,6 @@
                 
                 // If auto-activate flag is set (from QR scan), try to activate AR immediately
                 if (autoActivate && userGestureValid) {
-                    const headerMessage = document.getElementById('headerMessage');
                     if (headerMessage) {
                         headerMessage.textContent = 'Activating AR camera automatically...';
                     }
@@ -522,9 +521,10 @@
             // Enhanced hit-test feedback - detect when camera stops on a surface
             let lastTrackingTime = Date.now();
             let stableSurfaceCount = 0;
+            let stabilityCheckInterval = null;
             
             // Monitor surface stability to provide better feedback
-            setInterval(() => {
+            stabilityCheckInterval = setInterval(() => {
                 if (surfaceDetected && !modelPlaced) {
                     const timeSinceLastTracking = Date.now() - lastTrackingTime;
                     // If surface has been stable (tracked continuously)
@@ -551,6 +551,13 @@
                     }
                 }
             }, 200);
+            
+            // Cleanup interval on page unload
+            window.addEventListener('beforeunload', () => {
+                if (stabilityCheckInterval) {
+                    clearInterval(stabilityCheckInterval);
+                }
+            });
             
             // Listen for hit-test events to track surface detection
             modelViewer.addEventListener('ar-hit-test', (event) => {
@@ -597,7 +604,6 @@
             if (autoActivate) {
                 console.log('Auto-activation enabled: Will activate AR when model loads');
                 // Update header message
-                const headerMessage = document.getElementById('headerMessage');
                 if (headerMessage) {
                     headerMessage.textContent = 'Camera will activate automatically after loading...';
                 }
@@ -639,18 +645,22 @@
                 }, 200);
             };
             
+            // Make the entire viewer clickable to activate AR
+            // This provides the user interaction required by browsers for camera access
+            viewerContainer.addEventListener('click', activateAROnUserInteraction, { once: false });
+            
+            // Also listen for touch events on mobile devices
+            viewerContainer.addEventListener('touchstart', activateAROnUserInteraction, { once: false });
+            
             // Listen for user interaction anywhere on the page (fallback if auto-activate fails)
-            // Only add these if auto-activation didn't work
+            // Only add these if auto-activation didn't work after 2 seconds
             setTimeout(() => {
                 if (!arActivationAttempted && modelLoaded) {
+                    // Add document-level listeners only if auto-activation hasn't worked
                     document.addEventListener('click', activateAROnUserInteraction, { once: false });
                     document.addEventListener('touchstart', activateAROnUserInteraction, { once: false });
-                    viewerContainer.addEventListener('click', activateAROnUserInteraction);
                 }
             }, 2000); // Wait 2 seconds to see if auto-activation worked
-            
-            // Also make the entire viewer clickable as immediate fallback
-            viewerContainer.addEventListener('click', activateAROnUserInteraction);
         }
     </script>
 </body>

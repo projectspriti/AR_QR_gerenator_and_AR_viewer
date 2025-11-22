@@ -28,7 +28,7 @@ const Home = () => {
         return;
       }
       
-      // CRITICAL FIX: Ensure proper AR viewer activation
+      // PERFECT AR VIEWER: Enhanced handling for the perfect AR experience
       // Check if it's an AR viewer URL
       if (targetUrl.includes('/ar-view/ar-view.html') || targetUrl.includes('ar-view.html')) {
         // Ensure auto=1 parameter is present for automatic AR activation
@@ -37,9 +37,12 @@ const Home = () => {
           targetUrl = `${targetUrl}${separator}auto=1`;
         }
         
-        // Use window.open with user gesture context to preserve activation capability
-        // CRITICAL FIX: Add focus and resize features for better AR experience
-        const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer,width=screen.width,height=screen.height,fullscreen=yes');
+        // PERFECT AR VIEWER: Open in fullscreen for the best experience
+        const newWindow = window.open(
+          targetUrl, 
+          '_blank', 
+          'noopener,noreferrer,width=screen.width,height=screen.height,fullscreen=yes'
+        );
         if (newWindow) {
           // Try to focus the new window
           newWindow.focus();

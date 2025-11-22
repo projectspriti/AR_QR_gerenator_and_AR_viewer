@@ -20,7 +20,7 @@ export const uploadModel = async (req, res, next) => {
     
     // Generate URLs
     const modelUrl = `${baseUrl}/uploads/${file.filename}`;
-    // CRITICAL FIX: Ensure proper AR view URL construction for surface detection
+    // PERFECT AR VIEWER: Use the perfect AR viewer
     const arViewUrl = `${baseUrl}/ar-view/ar-view.html?model=${encodeURIComponent(modelUrl)}&auto=1`;
     
     // Generate QR code

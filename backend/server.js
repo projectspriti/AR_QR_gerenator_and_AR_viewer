@@ -45,6 +45,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// UPDATED: Serve AR viewer files including the new perfect AR viewer
 app.use('/ar-view', express.static(path.join(__dirname, 'src/public')));
 
 // Routes

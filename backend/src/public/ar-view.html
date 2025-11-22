@@ -115,6 +115,38 @@
         .instructions li {
             margin-bottom: 8px;
         }
+        
+        /* Visual feedback for surface detection */
+        .surface-indicator {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(40, 167, 69, 0.9);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 1000;
+            display: none;
+            animation: pulse 2s infinite;
+        }
+        
+        .surface-indicator.active {
+            display: block;
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1);
+            }
+            50% {
+                opacity: 0.8;
+                transform: translateX(-50%) scale(1.05);
+            }
+        }
 
         .error-message {
             padding: 20px;
@@ -206,6 +238,7 @@
         
         <div class="ar-viewer" id="arViewer">
             <div class="ar-status" id="arStatus">Initializing AR...</div>
+            <div class="surface-indicator" id="surfaceIndicator">🎯 Surface Detected - Tap to Place</div>
             <div class="loading" id="loading">
                 <div class="spinner"></div>
                 <div>Loading 3D Model...</div>
@@ -217,9 +250,9 @@
             <ol>
                 <li>Allow camera access when prompted</li>
                 <li>Point your device at a flat surface (table, floor, etc.)</li>
-                <li>Wait for the surface to be detected (you'll see tracking indicators)</li>
-                <li>Tap on the detected surface to place the 3D model</li>
-                <li>Move around to view the model from different angles</li>
+                <li>Move the camera slowly until a surface is detected (you'll see "Surface Detected" message)</li>
+                <li>When the camera stops on the detected surface, tap anywhere to place the 3D model</li>
+                <li>The model will appear anchored to the surface - move around to view from different angles</li>
             </ol>
         </div>
     </div>
@@ -227,14 +260,24 @@
     <script type="module">
         // Get model URL and auto-activation flag from query parameters
         const urlParams = new URLSearchParams(window.location.search);
-        const modelUrl = urlParams.get('model');
+        let modelUrl = urlParams.get('model');
         const autoActivate = urlParams.get('auto') === '1'; // Auto-activate AR if coming from QR scan
+
+        // Decode the model URL if it's encoded
+        if (modelUrl) {
+            try {
+                modelUrl = decodeURIComponent(modelUrl);
+            } catch (e) {
+                console.warn('Failed to decode model URL, using as-is:', e);
+            }
+        }
 
         if (!modelUrl) {
             document.getElementById('arViewer').innerHTML = `
                 <div class="error-message">
                     <h3>Error: No model specified</h3>
                     <p>Please provide a model URL in the query parameter.</p>
+                    <p style="margin-top: 10px; font-size: 12px;">URL: ${window.location.href}</p>
                 </div>
             `;
         } else {
@@ -252,22 +295,30 @@
             modelViewer.exposure = 1.0;
             modelViewer.environmentImage = 'neutral';
             
-            // Enable hit-testing for plane detection (WebXR)
+            // Enable hit-testing for plane detection (WebXR) - Surface anchoring
             modelViewer.setAttribute('ar-scale', 'auto');
-            modelViewer.setAttribute('ar-placement', 'floor');
-            modelViewer.setAttribute('ar-hit-test', '');
+            modelViewer.setAttribute('ar-placement', 'floor'); // Anchor to floor/surface
+            modelViewer.setAttribute('ar-hit-test', ''); // Enable hit testing for plane detection
             
             // Auto-activate AR on user interaction (page load counts as interaction)
             // This helps trigger AR mode automatically
             modelViewer.setAttribute('quick-look-browsers', 'safari chrome');
             modelViewer.setAttribute('interaction-policy', 'allow-when-focused');
             
+            // Enable tap-to-place functionality (model will appear when user taps on detected surface)
+            // The model-viewer will automatically handle placement when user taps on a detected plane
+            
             const arStatus = document.getElementById('arStatus');
             const loading = document.getElementById('loading');
+            const headerMessage = document.getElementById('headerMessage');
+            const surfaceIndicator = document.getElementById('surfaceIndicator');
             
             // Handle loading and auto-activate if coming from QR scan
             let modelLoaded = false;
             let userGestureValid = true; // Assume gesture context is valid when coming from QR scan
+            let surfaceDetected = false;
+            let modelPlaced = false;
+            let trackingStable = false;
             
             modelViewer.addEventListener('load', () => {
                 loading.style.display = 'none';
@@ -335,13 +386,39 @@
             });
 
             modelViewer.addEventListener('error', (e) => {
+                const errorDetail = e.detail || {};
+                const errorMessage = errorDetail.message || 'Unknown error';
+                const errorType = errorDetail.type || 'loading';
+                
+                let userMessage = 'Failed to load the 3D model.';
+                let technicalDetails = errorMessage;
+                
+                // Provide user-friendly error messages
+                if (errorMessage.includes('CORS') || errorMessage.includes('cross-origin')) {
+                    userMessage = 'CORS error: The model server does not allow cross-origin requests.';
+                    technicalDetails = 'The server needs to allow CORS for this domain.';
+                } else if (errorMessage.includes('404') || errorMessage.includes('Not Found')) {
+                    userMessage = 'Model file not found. The URL may be incorrect or the file may have been deleted.';
+                } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+                    userMessage = 'Network error: Could not connect to the model server.';
+                } else if (errorMessage.includes('format') || errorMessage.includes('parse')) {
+                    userMessage = 'Invalid model format. Please ensure the file is a valid .glb or .gltf file.';
+                }
+                
                 loading.innerHTML = `
                     <div class="error-message">
                         <h3>Error loading model</h3>
-                        <p>Failed to load the 3D model. Please check the URL and try again.</p>
-                        <p style="margin-top: 10px; font-size: 12px;">Error: ${e.detail?.message || 'Unknown error'}</p>
+                        <p>${userMessage}</p>
+                        <p style="margin-top: 10px; font-size: 12px; word-break: break-all;">
+                            <strong>Model URL:</strong> ${modelUrl}<br>
+                            <strong>Error:</strong> ${technicalDetails}
+                        </p>
+                        <button onclick="window.location.reload()" style="margin-top: 15px; padding: 10px 20px; background: #667eea; color: white; border: none; border-radius: 5px; cursor: pointer;">
+                            Retry
+                        </button>
                     </div>
                 `;
+                loading.style.display = 'block';
             });
 
             // AR session events for plane detection feedback
@@ -352,17 +429,35 @@
                 if (status === 'not-presenting') {
                     arStatus.textContent = '✅ Model ready. Tap anywhere to open camera.';
                     arStatus.className = 'ar-status active';
+                    if (headerMessage) {
+                        headerMessage.textContent = 'Tap to activate camera and find a surface';
+                    }
                 } else if (status === 'session-started') {
                     arStatus.textContent = '📷 Camera active. Move device slowly to detect flat surface...';
                     arStatus.className = 'ar-status active detecting';
+                    if (headerMessage) {
+                        headerMessage.textContent = 'Move camera slowly to detect a flat surface';
+                    }
+                    surfaceDetected = false;
+                    modelPlaced = false;
+                    trackingStable = false;
                 } else if (status === 'object-placed') {
-                    arStatus.textContent = '✅ Model placed! Move around to view.';
+                    modelPlaced = true;
+                    arStatus.textContent = '✅ Model placed on surface! Move around to view.';
                     arStatus.className = 'ar-status active detected';
+                    if (headerMessage) {
+                        headerMessage.textContent = 'Model placed - Move around to view from different angles';
+                    }
                     // Hide status after 3 seconds
                     setTimeout(() => {
-                        arStatus.style.opacity = '0';
-                        setTimeout(() => arStatus.style.display = 'none', 500);
+                        arStatus.style.opacity = '0.7';
                     }, 3000);
+                } else if (status === 'failed') {
+                    arStatus.textContent = '❌ AR failed. Please try again.';
+                    arStatus.className = 'ar-status active';
+                    if (headerMessage) {
+                        headerMessage.textContent = 'AR session failed - Please try again';
+                    }
                 }
             });
             
@@ -373,15 +468,95 @@
                 console.log('AR button clicked');
             });
 
-            // WebXR specific events
+            // WebXR specific events for plane detection
             modelViewer.addEventListener('ar-tracking', (event) => {
                 const tracking = event.detail.status;
+                
                 if (tracking === 'tracking') {
-                    arStatus.textContent = '🎯 Surface detected! Tap to place model.';
-                    arStatus.className = 'ar-status active detected';
+                    if (!surfaceDetected) {
+                        surfaceDetected = true;
+                        arStatus.textContent = '🎯 Surface detected! Tap to place model.';
+                        arStatus.className = 'ar-status active detected';
+                        if (surfaceIndicator) {
+                            surfaceIndicator.classList.add('active');
+                        }
+                        if (headerMessage) {
+                            headerMessage.textContent = 'Surface detected - Tap to place the model';
+                        }
+                    }
                 } else if (tracking === 'not-tracking') {
+                    surfaceDetected = false;
+                    if (surfaceIndicator) {
+                        surfaceIndicator.classList.remove('active');
+                    }
                     arStatus.textContent = '🔍 Move device slowly to detect surface...';
                     arStatus.className = 'ar-status active detecting';
+                    if (headerMessage) {
+                        headerMessage.textContent = 'Move camera to find a flat surface';
+                    }
+                }
+            });
+            
+            // Listen for when model is placed on surface
+            modelViewer.addEventListener('ar-place', () => {
+                if (!modelPlaced) {
+                    modelPlaced = true;
+                    arStatus.textContent = '✅ Model placed on surface!';
+                    arStatus.className = 'ar-status active detected';
+                    if (surfaceIndicator) {
+                        surfaceIndicator.textContent = '✅ Model Placed';
+                        setTimeout(() => {
+                            surfaceIndicator.classList.remove('active');
+                        }, 2000);
+                    }
+                    if (headerMessage) {
+                        headerMessage.textContent = 'Model placed - Move around to view';
+                    }
+                    // Hide status after 3 seconds
+                    setTimeout(() => {
+                        arStatus.style.opacity = '0.7';
+                    }, 3000);
+                }
+            });
+            
+            // Enhanced hit-test feedback - detect when camera stops on a surface
+            let lastTrackingTime = Date.now();
+            let stableSurfaceCount = 0;
+            
+            // Monitor surface stability to provide better feedback
+            setInterval(() => {
+                if (surfaceDetected && !modelPlaced) {
+                    const timeSinceLastTracking = Date.now() - lastTrackingTime;
+                    // If surface has been stable (tracked continuously)
+                    if (timeSinceLastTracking < 200) {
+                        stableSurfaceCount++;
+                        if (stableSurfaceCount > 10 && !trackingStable) {
+                            // Surface has been stable for ~2 seconds
+                            trackingStable = true;
+                            if (surfaceIndicator) {
+                                surfaceIndicator.textContent = '🎯 Surface Ready - Tap to Place';
+                                surfaceIndicator.classList.add('active');
+                            }
+                            if (arStatus) {
+                                arStatus.textContent = '🎯 Surface stable - Tap anywhere to place model';
+                                arStatus.className = 'ar-status active detected';
+                            }
+                            if (headerMessage) {
+                                headerMessage.textContent = 'Surface detected and stable - Tap to place the model';
+                            }
+                        }
+                    } else {
+                        stableSurfaceCount = 0;
+                        trackingStable = false;
+                    }
+                }
+            }, 200);
+            
+            // Listen for hit-test events to track surface detection
+            modelViewer.addEventListener('ar-hit-test', (event) => {
+                if (event.detail && event.detail.hitTestResults && event.detail.hitTestResults.length > 0) {
+                    // Surface is being tracked - update last tracking time
+                    lastTrackingTime = Date.now();
                 }
             });
 

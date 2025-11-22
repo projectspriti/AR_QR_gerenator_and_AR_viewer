@@ -7,19 +7,41 @@ const Home = () => {
   const [showScanner, setShowScanner] = useState(false);
 
   const handleScanSuccess = (decodedText) => {
-    setShowScanner(false);
-    // Check if it's an AR viewer URL
-    let targetUrl = decodedText;
-    
-    // Add auto-activation parameter to enable automatic AR camera activation
-    if (targetUrl.includes('/ar-view/ar-view.html')) {
-      // Check if URL already has query parameters
-      const separator = targetUrl.includes('?') ? '&' : '?';
-      targetUrl = `${targetUrl}${separator}auto=1`;
+    try {
+      setShowScanner(false);
+      
+      // Validate and normalize the URL
+      let targetUrl = decodedText.trim();
+      
+      // If it's a relative URL, make it absolute
+      if (targetUrl.startsWith('/')) {
+        const baseUrl = window.location.origin;
+        targetUrl = `${baseUrl}${targetUrl}`;
+      }
+      
+      // Validate it's a proper URL
+      try {
+        new URL(targetUrl);
+      } catch (e) {
+        alert('Invalid QR code URL. Please scan a valid AR viewer QR code.');
+        setShowScanner(true);
+        return;
+      }
+      
+      // Check if it's an AR viewer URL
+      if (targetUrl.includes('/ar-view/ar-view.html') || targetUrl.includes('ar-view.html')) {
+        // Check if URL already has query parameters
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        targetUrl = `${targetUrl}${separator}auto=1`;
+      }
+      
+      // Redirect immediately while we still have user gesture context
+      window.location.href = targetUrl;
+    } catch (error) {
+      console.error('Error handling scan success:', error);
+      alert('Error processing QR code. Please try again.');
+      setShowScanner(true);
     }
-    
-    // Redirect immediately while we still have user gesture context
-    window.location.href = targetUrl;
   };
 
   return (

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import QRCodeViewer from '../components/QRCodeViewer';
-import QRScannerNew from '../components/QRScannerNew';
+import ModernQRScanner from '../components/ModernQRScanner';
 
 const GenerateQR = () => {
   const location = useLocation();
@@ -101,7 +101,7 @@ const GenerateQR = () => {
       </div>
       
       {showScanner && (
-        <QRScannerNew
+        <ModernQRScanner
           onScanSuccess={handleScanSuccess}
           onClose={() => setShowScanner(false)}
         />

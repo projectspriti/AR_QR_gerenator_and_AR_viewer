@@ -1,27 +1,17 @@
 import React, { useEffect, useRef, useState } from 'react';
-import QrCodeReader from 'qrcode-reader';
+import jsQR from 'jsqr';
 
-const QRScannerNew = ({ onScanSuccess, onClose }) => {
+const ModernQRScanner = ({ onScanSuccess, onClose }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState(null);
   const [scanStatus, setScanStatus] = useState('Ready to scan');
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
-  const qrReaderRef = useRef(null);
   const scanIntervalRef = useRef(null);
+  const isProcessingRef = useRef(false);
 
   useEffect(() => {
-    // Initialize QR reader
-    qrReaderRef.current = new QrCodeReader();
-    qrReaderRef.current.callback = (err, result) => {
-      if (result) {
-        handleScanSuccess(result);
-      } else if (err && !err.message.includes('NotFoundException')) {
-        console.error('QR Scan error:', err);
-      }
-    };
-
     return () => {
       stopScanning();
     };
@@ -31,10 +21,15 @@ const QRScannerNew = ({ onScanSuccess, onClose }) => {
     try {
       setError(null);
       setScanStatus('Initializing camera...');
+      isProcessingRef.current = false;
       
       // Get camera stream
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+        video: { 
+          facingMode: 'environment',
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        } 
       });
       
       streamRef.current = stream;
@@ -48,7 +43,7 @@ const QRScannerNew = ({ onScanSuccess, onClose }) => {
       setScanStatus('Scanning... Point camera at QR code');
       
       // Start scanning interval
-      scanIntervalRef.current = setInterval(scanFrame, 500);
+      scanIntervalRef.current = setInterval(scanFrame, 200);
     } catch (err) {
       console.error('Error starting scanner:', err);
       let errorMsg = 'Failed to start camera. ';
@@ -70,7 +65,7 @@ const QRScannerNew = ({ onScanSuccess, onClose }) => {
   };
 
   const scanFrame = () => {
-    if (!videoRef.current || !canvasRef.current || !qrReaderRef.current) return;
+    if (!videoRef.current || !canvasRef.current || isProcessingRef.current) return;
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -82,7 +77,19 @@ const QRScannerNew = ({ onScanSuccess, onClose }) => {
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      qrReaderRef.current.decode(imageData);
+      
+      try {
+        isProcessingRef.current = true;
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        
+        if (code) {
+          handleScanSuccess(code.data);
+        }
+      } catch (err) {
+        console.error('QR decoding error:', err);
+      } finally {
+        isProcessingRef.current = false;
+      }
     }
   };
 
@@ -106,20 +113,21 @@ const QRScannerNew = ({ onScanSuccess, onClose }) => {
     
     setIsScanning(false);
     setScanStatus('Stopped');
+    isProcessingRef.current = false;
   };
 
-  const handleScanSuccess = (result) => {
-    if (!result || !result.result) {
+  const handleScanSuccess = (decodedText) => {
+    if (!decodedText || !decodedText.trim()) {
       setError('Invalid QR code. Please try scanning again.');
       return;
     }
 
-    const decodedText = result.result.trim();
+    const trimmedText = decodedText.trim();
     
     // Basic validation - check if it looks like a URL or path
-    const isAbsoluteUrl = /^https?:\/\//i.test(decodedText);
-    const isRelativePath = decodedText.startsWith('/');
-    const looksLikeUrl = isAbsoluteUrl || isRelativePath || decodedText.includes('.html') || decodedText.includes('/ar-view');
+    const isAbsoluteUrl = /^https?:\/\//i.test(trimmedText);
+    const isRelativePath = trimmedText.startsWith('/');
+    const looksLikeUrl = isAbsoluteUrl || isRelativePath || trimmedText.includes('.html') || trimmedText.includes('/ar-view');
     
     if (!looksLikeUrl) {
       setError('QR code does not appear to contain a valid AR viewer URL. Please scan a valid QR code.');
@@ -131,7 +139,7 @@ const QRScannerNew = ({ onScanSuccess, onClose }) => {
     setScanStatus('QR code detected! Redirecting...');
     
     if (onScanSuccess) {
-      onScanSuccess(decodedText);
+      onScanSuccess(trimmedText);
     }
   };
 
@@ -226,4 +234,4 @@ const QRScannerNew = ({ onScanSuccess, onClose }) => {
   );
 };
 
-export default QRScannerNew;
+export default ModernQRScanner;

@@ -4,8 +4,6 @@ import UploadModel from '../pages/UploadModel';
 import GenerateQR from '../pages/GenerateQR';
 import ARViewerLoader from '../pages/ARViewerLoader';
 import Home from '../pages/Home';
-import QRTest from '../components/QRTest';
-import QRScannerTest from '../pages/QRScannerTest';
 
 const AppRoutes = () => {
   return (
@@ -14,8 +12,6 @@ const AppRoutes = () => {
       <Route path="/upload" element={<UploadModel />} />
       <Route path="/qr" element={<GenerateQR />} />
       <Route path="/ar-view" element={<ARViewerLoader />} />
-      <Route path="/qr-test" element={<QRTest />} />
-      <Route path="/scanner-test" element={<QRScannerTest />} />
     </Routes>
   );
 };

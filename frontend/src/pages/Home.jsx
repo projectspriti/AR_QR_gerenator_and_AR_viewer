@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import QRScannerNew from '../components/QRScannerNew';
+import ModernQRScanner from '../components/ModernQRScanner';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -148,7 +148,7 @@ const Home = () => {
       </div>
 
       {showScanner && (
-        <QRScannerNew
+        <ModernQRScanner
           onScanSuccess={handleScanSuccess}
           onClose={() => setShowScanner(false)}
         />

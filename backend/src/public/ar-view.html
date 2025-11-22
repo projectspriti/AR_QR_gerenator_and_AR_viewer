@@ -55,6 +55,11 @@
             min-height: 500px;
             background: #000;
             position: relative;
+            cursor: pointer;
+        }
+        
+        .ar-viewer:hover {
+            opacity: 0.95;
         }
 
         model-viewer {
@@ -191,7 +196,7 @@
     <div class="container">
         <div class="header">
             <h1>🎯 AR 3D Model Viewer</h1>
-            <p>Point your camera at a flat surface to place the model</p>
+            <p>Tap anywhere after loading to open camera and find a flat surface</p>
         </div>
         
         <div class="https-warning" id="httpsWarning">
@@ -251,14 +256,21 @@
             modelViewer.setAttribute('ar-placement', 'floor');
             modelViewer.setAttribute('ar-hit-test', '');
             
+            // Auto-activate AR on user interaction (page load counts as interaction)
+            // This helps trigger AR mode automatically
+            modelViewer.setAttribute('quick-look-browsers', 'safari chrome');
+            modelViewer.setAttribute('interaction-policy', 'allow-when-focused');
+            
             const arStatus = document.getElementById('arStatus');
             const loading = document.getElementById('loading');
             
             // Handle loading
+            let modelLoaded = false;
             modelViewer.addEventListener('load', () => {
                 loading.style.display = 'none';
                 arStatus.classList.add('active');
-                arStatus.textContent = 'Model loaded. Tap "View in AR" to start.';
+                modelLoaded = true;
+                arStatus.textContent = '✅ Model loaded. Tap anywhere to open camera and find a surface.';
             });
 
             modelViewer.addEventListener('error', (e) => {
@@ -277,10 +289,10 @@
                 arStatus.classList.add('active');
                 
                 if (status === 'not-presenting') {
-                    arStatus.textContent = 'Tap "View in AR" button to start';
+                    arStatus.textContent = '✅ Model ready. Tap anywhere to open camera.';
                     arStatus.className = 'ar-status active';
                 } else if (status === 'session-started') {
-                    arStatus.textContent = '🔍 Move device to detect surfaces...';
+                    arStatus.textContent = '📷 Camera active. Move device slowly to detect flat surface...';
                     arStatus.className = 'ar-status active detecting';
                 } else if (status === 'object-placed') {
                     arStatus.textContent = '✅ Model placed! Move around to view.';
@@ -291,6 +303,13 @@
                         setTimeout(() => arStatus.style.display = 'none', 500);
                     }, 3000);
                 }
+            });
+            
+            // Listen for AR button clicks (when user clicks the built-in AR button)
+            modelViewer.addEventListener('click', (event) => {
+                // AR button click will be handled by model-viewer automatically
+                // This listener is just for logging
+                console.log('AR button clicked');
             });
 
             // WebXR specific events
@@ -316,14 +335,14 @@
                 httpsWarning.classList.add('show');
             }
             
-            // Check WebXR support
+            // Check WebXR support and prepare for auto-AR activation
             if ('xr' in navigator) {
                 navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
                     if (!supported) {
                         console.warn('WebXR AR not supported, will use scene-viewer fallback');
-                        arStatus.textContent = '⚠️ WebXR not available. Using scene-viewer mode.';
+                        arStatus.textContent = '📱 Tap "View in AR" to open camera';
                     } else {
-                        console.log('WebXR AR is supported!');
+                        console.log('WebXR AR is supported! Will auto-activate after model loads.');
                     }
                 }).catch(() => {
                     console.warn('Could not check WebXR support');
@@ -331,9 +350,50 @@
             } else {
                 console.warn('WebXR API not available');
                 if (window.location.protocol === 'https:') {
-                    arStatus.textContent = '⚠️ WebXR not available. Using scene-viewer mode.';
+                    arStatus.textContent = '📱 Tap "View in AR" to open camera';
                 }
             }
+            
+            // Global click/touch handler to activate AR when user taps anywhere
+            // This provides the user interaction required by browsers for camera access
+            let arActivationAttempted = false;
+            const activateAROnUserInteraction = () => {
+                if (!modelLoaded || arActivationAttempted) return;
+                
+                arActivationAttempted = true;
+                arStatus.textContent = '📷 Opening camera...';
+                arStatus.className = 'ar-status active detecting';
+                
+                // Small delay to ensure model is ready
+                setTimeout(() => {
+                    try {
+                        // Try to activate AR programmatically
+                        if (modelViewer.canActivateAR) {
+                            modelViewer.activateAR();
+                        } else {
+                            // Fallback: Try clicking AR button programmatically
+                            const arButton = modelViewer.shadowRoot?.querySelector('button[ar-button]');
+                            if (arButton) {
+                                arButton.click();
+                            } else {
+                                arStatus.textContent = '📱 Tap "View in AR" button above to start';
+                                arActivationAttempted = false; // Allow retry
+                            }
+                        }
+                    } catch (error) {
+                        console.log('AR activation:', error.message);
+                        arStatus.textContent = '📱 Tap "View in AR" button to start camera';
+                        arActivationAttempted = false; // Allow retry
+                    }
+                }, 200);
+            };
+            
+            // Listen for user interaction anywhere on the page
+            document.addEventListener('click', activateAROnUserInteraction, { once: false });
+            document.addEventListener('touchstart', activateAROnUserInteraction, { once: false });
+            
+            // Also make the entire viewer clickable
+            viewerContainer.addEventListener('click', activateAROnUserInteraction);
         }
     </script>
 </body>

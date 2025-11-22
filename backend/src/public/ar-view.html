@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>AR 3D Model Viewer</title>
+    <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.3.0/model-viewer.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+
+        .ar-viewer {
+            width: 100%;
+            height: 70vh;
+            min-height: 500px;
+            background: #000;
+            position: relative;
+        }
+
+        model-viewer {
+            width: 100%;
+            height: 100%;
+            --poster-color: transparent;
+        }
+
+        .ar-status {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px 15px;
+            border-radius: 20px;
+            font-size: 12px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .ar-status.active {
+            display: block;
+        }
+
+        .ar-status.detecting {
+            background: rgba(255, 193, 7, 0.9);
+            color: #000;
+        }
+
+        .ar-status.detected {
+            background: rgba(40, 167, 69, 0.9);
+        }
+
+        .instructions {
+            padding: 20px;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .instructions h3 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        .instructions ol {
+            margin-left: 20px;
+            color: #666;
+            line-height: 1.8;
+        }
+
+        .instructions li {
+            margin-bottom: 8px;
+        }
+
+        .error-message {
+            padding: 20px;
+            text-align: center;
+            color: #dc3545;
+            background: #f8d7da;
+            border-radius: 10px;
+            margin: 20px;
+        }
+
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 18px;
+            text-align: center;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .back-button {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            background: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 14px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        .back-button:hover {
+            background: #f0f0f0;
+        }
+
+        .https-warning {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            color: #856404;
+            padding: 15px;
+            margin: 20px;
+            border-radius: 10px;
+            font-size: 14px;
+            display: none;
+        }
+
+        .https-warning.show {
+            display: block;
+        }
+
+        .https-warning strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <button class="back-button" onclick="window.history.back()">← Back</button>
+    
+    <div class="container">
+        <div class="header">
+            <h1>🎯 AR 3D Model Viewer</h1>
+            <p>Point your camera at a flat surface to place the model</p>
+        </div>
+        
+        <div class="https-warning" id="httpsWarning">
+            <strong>⚠️ HTTPS Required for AR</strong>
+            <p>Plane detection requires HTTPS connection. If you're using HTTP, AR features may not work. Use HTTPS or a tool like ngrok for local testing.</p>
+        </div>
+        
+        <div class="ar-viewer" id="arViewer">
+            <div class="ar-status" id="arStatus">Initializing AR...</div>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <div>Loading 3D Model...</div>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <h3>How to use:</h3>
+            <ol>
+                <li>Allow camera access when prompted</li>
+                <li>Point your device at a flat surface (table, floor, etc.)</li>
+                <li>Wait for the surface to be detected (you'll see tracking indicators)</li>
+                <li>Tap on the detected surface to place the 3D model</li>
+                <li>Move around to view the model from different angles</li>
+            </ol>
+        </div>
+    </div>
+
+    <script type="module">
+        // Get model URL from query parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const modelUrl = urlParams.get('model');
+
+        if (!modelUrl) {
+            document.getElementById('arViewer').innerHTML = `
+                <div class="error-message">
+                    <h3>Error: No model specified</h3>
+                    <p>Please provide a model URL in the query parameter.</p>
+                </div>
+            `;
+        } else {
+            // Create model-viewer element
+            const modelViewer = document.createElement('model-viewer');
+            modelViewer.src = modelUrl;
+            modelViewer.alt = '3D Model';
+            modelViewer.ar = true;
+            // Prioritize WebXR for better plane detection, fallback to scene-viewer
+            modelViewer.arModes = 'webxr scene-viewer';
+            modelViewer.cameraControls = true;
+            modelViewer.autoRotate = false;
+            modelViewer.interactionPromptThreshold = 0;
+            modelViewer.shadowIntensity = 1;
+            modelViewer.exposure = 1.0;
+            modelViewer.environmentImage = 'neutral';
+            
+            // Enable hit-testing for plane detection (WebXR)
+            modelViewer.setAttribute('ar-scale', 'auto');
+            modelViewer.setAttribute('ar-placement', 'floor');
+            modelViewer.setAttribute('ar-hit-test', '');
+            
+            const arStatus = document.getElementById('arStatus');
+            const loading = document.getElementById('loading');
+            
+            // Handle loading
+            modelViewer.addEventListener('load', () => {
+                loading.style.display = 'none';
+                arStatus.classList.add('active');
+                arStatus.textContent = 'Model loaded. Tap "View in AR" to start.';
+            });
+
+            modelViewer.addEventListener('error', (e) => {
+                loading.innerHTML = `
+                    <div class="error-message">
+                        <h3>Error loading model</h3>
+                        <p>Failed to load the 3D model. Please check the URL and try again.</p>
+                        <p style="margin-top: 10px; font-size: 12px;">Error: ${e.detail?.message || 'Unknown error'}</p>
+                    </div>
+                `;
+            });
+
+            // AR session events for plane detection feedback
+            modelViewer.addEventListener('ar-status', (event) => {
+                const status = event.detail.status;
+                arStatus.classList.add('active');
+                
+                if (status === 'not-presenting') {
+                    arStatus.textContent = 'Tap "View in AR" button to start';
+                    arStatus.className = 'ar-status active';
+                } else if (status === 'session-started') {
+                    arStatus.textContent = '🔍 Move device to detect surfaces...';
+                    arStatus.className = 'ar-status active detecting';
+                } else if (status === 'object-placed') {
+                    arStatus.textContent = '✅ Model placed! Move around to view.';
+                    arStatus.className = 'ar-status active detected';
+                    // Hide status after 3 seconds
+                    setTimeout(() => {
+                        arStatus.style.opacity = '0';
+                        setTimeout(() => arStatus.style.display = 'none', 500);
+                    }, 3000);
+                }
+            });
+
+            // WebXR specific events
+            modelViewer.addEventListener('ar-tracking', (event) => {
+                const tracking = event.detail.status;
+                if (tracking === 'tracking') {
+                    arStatus.textContent = '🎯 Surface detected! Tap to place model.';
+                    arStatus.className = 'ar-status active detected';
+                } else if (tracking === 'not-tracking') {
+                    arStatus.textContent = '🔍 Move device slowly to detect surface...';
+                    arStatus.className = 'ar-status active detecting';
+                }
+            });
+
+            // Replace loading with model viewer
+            const viewerContainer = document.getElementById('arViewer');
+            viewerContainer.innerHTML = '';
+            viewerContainer.appendChild(modelViewer);
+            
+            // Check HTTPS
+            const httpsWarning = document.getElementById('httpsWarning');
+            if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                httpsWarning.classList.add('show');
+            }
+            
+            // Check WebXR support
+            if ('xr' in navigator) {
+                navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                    if (!supported) {
+                        console.warn('WebXR AR not supported, will use scene-viewer fallback');
+                        arStatus.textContent = '⚠️ WebXR not available. Using scene-viewer mode.';
+                    } else {
+                        console.log('WebXR AR is supported!');
+                    }
+                }).catch(() => {
+                    console.warn('Could not check WebXR support');
+                });
+            } else {
+                console.warn('WebXR API not available');
+                if (window.location.protocol === 'https:') {
+                    arStatus.textContent = '⚠️ WebXR not available. Using scene-viewer mode.';
+                }
+            }
+        }
+    </script>
+</body>
+</html>
+

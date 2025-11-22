@@ -4,7 +4,7 @@ import jsQR from 'jsqr';
 const ModernQRScanner = ({ onScanSuccess, onClose }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState(null);
-  const [scanStatus, setScanStatus] = useState('Ready to scan');
+  const [scanStatus, setScanStatus] = useState('Initializing camera...');
   const [hasCameraPermission, setHasCameraPermission] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -212,7 +212,7 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
 
   const handleRetry = () => {
     setError(null);
-    setScanStatus('Ready to scan');
+    setScanStatus('Initializing camera...');
     stopScanning();
     startScanning(); // Restart scanning on retry
   };
@@ -255,11 +255,11 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
           {!isScanning ? (
             <div className="text-gray-400 text-center p-8 w-full">
               <div className="text-4xl mb-2">📷</div>
-              <p className="mb-4">Camera preview will appear here</p>
+              <p className="mb-4">Initializing camera...</p>
               <p className="text-sm text-gray-500">
                 {hasCameraPermission === false 
                   ? "Camera access denied. Please enable camera permission in browser settings." 
-                  : "Initializing camera..."}
+                  : "Please allow camera access when prompted"}
               </p>
             </div>
           ) : (

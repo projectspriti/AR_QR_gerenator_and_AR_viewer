@@ -7,9 +7,13 @@ export const qrScannerConfig = {
   videoConstraints: {
     facingMode: 'environment', // Use back camera
   },
+  // Additional configuration for better scanning performance
+  experimentalFeatures: {
+    useBarCodeDetectorIfSupported: true,
+    willReadFrequently: true,
+  }
 };
 
 export const qrScannerErrorCallback = (errorMessage) => {
   console.error('QR Scanner Error:', errorMessage);
 };
-

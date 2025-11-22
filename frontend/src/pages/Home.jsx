@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import QRScanner from '../components/QRScanner';
+import QRScannerNew from '../components/QRScannerNew';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -30,13 +30,25 @@ const Home = () => {
       
       // Check if it's an AR viewer URL
       if (targetUrl.includes('/ar-view/ar-view.html') || targetUrl.includes('ar-view.html')) {
-        // Check if URL already has query parameters
-        const separator = targetUrl.includes('?') ? '&' : '?';
-        targetUrl = `${targetUrl}${separator}auto=1`;
+        // Ensure auto=1 parameter is present for automatic AR activation
+        if (!targetUrl.includes('auto=1')) {
+          const separator = targetUrl.includes('?') ? '&' : '?';
+          targetUrl = `${targetUrl}${separator}auto=1`;
+        }
+        
+        // Use window.open with user gesture context to preserve activation capability
+        const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        if (newWindow) {
+          // Try to focus the new window
+          newWindow.focus();
+        } else {
+          // Fallback if popup blocked
+          window.location.href = targetUrl;
+        }
+      } else {
+        // For other URLs, just navigate normally
+        window.location.href = targetUrl;
       }
-      
-      // Redirect immediately while we still have user gesture context
-      window.location.href = targetUrl;
     } catch (error) {
       console.error('Error handling scan success:', error);
       alert('Error processing QR code. Please try again.');
@@ -136,7 +148,7 @@ const Home = () => {
       </div>
 
       {showScanner && (
-        <QRScanner
+        <QRScannerNew
           onScanSuccess={handleScanSuccess}
           onClose={() => setShowScanner(false)}
         />
@@ -146,4 +158,3 @@ const Home = () => {
 };
 
 export default Home;
-

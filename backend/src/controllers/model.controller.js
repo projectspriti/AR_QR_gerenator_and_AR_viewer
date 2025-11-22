@@ -20,7 +20,8 @@ export const uploadModel = async (req, res, next) => {
     
     // Generate URLs
     const modelUrl = `${baseUrl}/uploads/${file.filename}`;
-    const arViewUrl = `${baseUrl}/ar-view/ar-view.html?model=${encodeURIComponent(modelUrl)}`;
+    // Add auto=1 parameter to enable automatic AR activation when scanning QR code
+    const arViewUrl = `${baseUrl}/ar-view/ar-view.html?model=${encodeURIComponent(modelUrl)}&auto=1`;
     
     // Generate QR code
     const qrFilename = path.parse(file.filename).name;
@@ -62,4 +63,3 @@ export const getModel = async (req, res, next) => {
     next(error);
   }
 };
-

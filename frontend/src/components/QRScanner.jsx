@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Html5Qrcode } from 'html5-qrcode';
+import { Html5Qrcode, Html5QrcodeScannerState } from 'html5-qrcode';
 import { qrScannerConfig } from '../utils/qrScannerConfig';
 
 const QRScanner = ({ onScanSuccess, onClose }) => {
@@ -9,22 +9,64 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
   const html5QrCodeRef = useRef(null);
   const scannerId = 'qr-reader';
   const scanAttemptsRef = useRef(0);
+  const isCleaningUpRef = useRef(false);
+  const isScanSuccessRef = useRef(false);
 
   useEffect(() => {
+    // Initialize scanner container
+    const scannerElement = document.getElementById(scannerId);
+    if (scannerElement) {
+      scannerElement.innerHTML = '';
+    }
+    
     return () => {
       // Cleanup on unmount
-      if (html5QrCodeRef.current) {
-        html5QrCodeRef.current.stop().catch(() => {});
-        html5QrCodeRef.current.clear().catch(() => {});
-      }
+      cleanupScanner();
     };
   }, []);
+
+  const cleanupScanner = async () => {
+    if (isCleaningUpRef.current) return;
+    isCleaningUpRef.current = true;
+    
+    try {
+      if (html5QrCodeRef.current) {
+        // Check if scanner is actually running before trying to stop
+        const state = html5QrCodeRef.current.getState();
+        if (state !== Html5QrcodeScannerState.NOT_STARTED && 
+            state !== Html5QrcodeScannerState.STOPPED) {
+          try {
+            await html5QrCodeRef.current.stop();
+          } catch (e) {
+            console.warn('Error stopping scanner:', e);
+          }
+        }
+        
+        // Only clear if the element still exists in the DOM and has children
+        const scannerElement = document.getElementById(scannerId);
+        if (scannerElement && scannerElement.children && scannerElement.children.length > 0) {
+          try {
+            await html5QrCodeRef.current.clear();
+          } catch (e) {
+            console.warn('Error clearing scanner:', e);
+          }
+        }
+        html5QrCodeRef.current = null;
+      }
+    } catch (e) {
+      console.warn('Error during scanner cleanup:', e);
+    } finally {
+      isCleaningUpRef.current = false;
+    }
+  };
 
   const startScanning = async () => {
     try {
       setError(null);
       setScanStatus('Initializing camera...');
       scanAttemptsRef.current = 0;
+      isCleaningUpRef.current = false;
+      isScanSuccessRef.current = false;
       
       // Ensure the scanner element exists
       const scannerElement = document.getElementById(scannerId);
@@ -33,17 +75,13 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
         return;
       }
 
-      // Stop any existing scanner instance
-      if (html5QrCodeRef.current) {
-        try {
-          await html5QrCodeRef.current.stop();
-          await html5QrCodeRef.current.clear();
-        } catch (e) {
-          // Ignore cleanup errors
-        }
-      }
+      // Clean up any existing scanner instance properly
+      await cleanupScanner();
 
-      const html5QrCode = new Html5Qrcode(scannerId);
+      // Clear the scanner container
+      scannerElement.innerHTML = '';
+
+      const html5QrCode = new Html5Qrcode(scannerId, qrScannerConfig.experimentalFeatures);
       html5QrCodeRef.current = html5QrCode;
 
       await html5QrCode.start(
@@ -52,9 +90,13 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
           fps: qrScannerConfig.fps,
           qrbox: qrScannerConfig.qrbox,
           aspectRatio: qrScannerConfig.aspectRatio,
-          disableFlip: false,
+          disableFlip: qrScannerConfig.disableFlip,
         },
         (decodedText) => {
+          // Prevent multiple scan success callbacks
+          if (isScanSuccessRef.current) return;
+          isScanSuccessRef.current = true;
+          
           // Success callback - validate URL before processing
           if (decodedText && decodedText.trim()) {
             handleScanSuccess(decodedText.trim());
@@ -85,6 +127,8 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
         errorMsg += 'No camera found. Please check your device.';
       } else if (err.message?.includes('NotReadableError')) {
         errorMsg += 'Camera is already in use by another application.';
+      } else if (err.message?.includes('OverconstrainedError')) {
+        errorMsg += 'Camera constraints cannot be satisfied. Try a different camera.';
       } else {
         errorMsg += 'Please check permissions and try again.';
       }
@@ -97,11 +141,7 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
 
   const stopScanning = async () => {
     try {
-      if (html5QrCodeRef.current) {
-        await html5QrCodeRef.current.stop();
-        await html5QrCodeRef.current.clear();
-        html5QrCodeRef.current = null;
-      }
+      await cleanupScanner();
       setIsScanning(false);
       setScanStatus('Stopped');
     } catch (err) {
@@ -114,6 +154,7 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
     // Validate the scanned text
     if (!decodedText || !decodedText.trim()) {
       setError('Invalid QR code. Please try scanning again.');
+      isScanSuccessRef.current = false;
       return;
     }
 
@@ -126,6 +167,7 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
     
     if (!looksLikeUrl) {
       setError('QR code does not appear to contain a valid AR viewer URL. Please scan a valid QR code.');
+      isScanSuccessRef.current = false;
       return;
     }
 
@@ -153,6 +195,7 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
           <button
             onClick={handleClose}
             className="text-gray-600 hover:text-gray-800 text-2xl"
+            aria-label="Close scanner"
           >
             ✕
           </button>
@@ -182,6 +225,7 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
             <button
               onClick={startScanning}
               className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200"
+              aria-label="Start camera"
             >
               Start Camera
             </button>
@@ -189,6 +233,7 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
             <button
               onClick={stopScanning}
               className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200"
+              aria-label="Stop scanning"
             >
               Stop Scanning
             </button>
@@ -196,6 +241,7 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
           <button
             onClick={handleClose}
             className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200"
+            aria-label="Close scanner"
           >
             Close
           </button>
@@ -210,4 +256,3 @@ const QRScanner = ({ onScanSuccess, onClose }) => {
 };
 
 export default QRScanner;
-

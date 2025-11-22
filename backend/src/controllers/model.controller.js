@@ -15,7 +15,8 @@ export const uploadModel = async (req, res, next) => {
     }
 
     const file = req.file;
-    const baseUrl = process.env.BACKEND_URL || 'http://localhost:5000';
+    // Use environment variable or construct from request
+    const baseUrl = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
     
     // Generate URLs
     const modelUrl = `${baseUrl}/uploads/${file.filename}`;

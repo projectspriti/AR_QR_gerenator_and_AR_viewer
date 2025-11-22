@@ -12,7 +12,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-// Use PORT from environment or try different ports if 5000 is in use
+// Use PORT from environment or default to 5000
 const PORT = process.env.PORT || 5000;
 
 // Middleware - CORS configuration
@@ -58,28 +58,8 @@ app.get('/api/health', (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
-// Start server with port fallback
-function startServer(port) {
-  // Ensure port is within valid range
-  if (port >= 65536) {
-    console.error('No available ports found. Please free up some ports or specify a PORT environment variable.');
-    process.exit(1);
-  }
-  
-  const server = app.listen(port, () => {
-    console.log(`Server running on http://localhost:${port}`);
-    console.log(`Uploads directory: ${path.join(__dirname, 'uploads')}`);
-  });
-
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.log(`Port ${port} is already in use, trying ${port + 1}...`);
-      startServer(port + 1);
-    } else {
-      console.error('Server error:', err);
-    }
-  });
-}
-
 // Start server
-startServer(parseInt(PORT));
+app.listen(PORT, () => {
+  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Uploads directory: ${path.join(__dirname, 'uploads')}`);
+});

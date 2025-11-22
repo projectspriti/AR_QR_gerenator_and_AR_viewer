@@ -5,6 +5,7 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [error, setError] = useState(null);
   const [scanStatus, setScanStatus] = useState('Ready to scan');
+  const [hasCameraPermission, setHasCameraPermission] = useState(null);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const streamRef = useRef(null);
@@ -12,18 +13,52 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
   const isProcessingRef = useRef(false);
 
   useEffect(() => {
+    // Check for camera permission on component mount
+    checkCameraPermission();
+    
+    // Automatically start scanning when component mounts
+    startScanning();
+    
     return () => {
       stopScanning();
     };
   }, []);
 
-  const startScanning = async () => {
+  const checkCameraPermission = async () => {
     try {
-      setError(null);
-      setScanStatus('Initializing camera...');
-      isProcessingRef.current = false;
+      if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        setError('Camera API not supported in your browser. Please try a modern browser.');
+        return;
+      }
+
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter(device => device.kind === 'videoinput');
       
-      // Get camera stream
+      if (videoDevices.length === 0) {
+        setError('No camera found on this device.');
+        return;
+      }
+
+      // Check permission status if available
+      if (navigator.permissions) {
+        try {
+          const permissionStatus = await navigator.permissions.query({ name: 'camera' });
+          setHasCameraPermission(permissionStatus.state === 'granted');
+        } catch (err) {
+          // Permission API not supported, continue with normal flow
+          setHasCameraPermission(null);
+        }
+      }
+    } catch (err) {
+      console.warn('Could not check camera permission:', err);
+    }
+  };
+
+  const requestCameraPermission = async () => {
+    try {
+      setScanStatus('Requesting camera permission...');
+      
+      // Request camera access
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { 
           facingMode: 'environment',
@@ -32,8 +67,45 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
         } 
       });
       
+      // Permission granted
+      setHasCameraPermission(true);
       streamRef.current = stream;
       
+      return stream;
+    } catch (err) {
+      console.error('Camera permission error:', err);
+      
+      // Handle different error types
+      if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        setError('Camera access denied. Please allow camera permission in your browser settings.');
+        setHasCameraPermission(false);
+      } else if (err.name === 'NotFoundError' || err.name === 'OverconstrainedError') {
+        setError('No suitable camera found. Please check your device.');
+      } else if (err.name === 'NotReadableError') {
+        setError('Camera is already in use by another application.');
+      } else {
+        setError('Failed to access camera. Please check permissions and try again.');
+      }
+      
+      setScanStatus('Camera error');
+      return null;
+    }
+  };
+
+  const startScanning = async () => {
+    try {
+      setError(null);
+      setScanStatus('Initializing camera...');
+      isProcessingRef.current = false;
+      
+      // Request camera permission
+      const stream = await requestCameraPermission();
+      if (!stream) {
+        setIsScanning(false);
+        return;
+      }
+      
+      // Set up video element
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
@@ -46,19 +118,7 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
       scanIntervalRef.current = setInterval(scanFrame, 200);
     } catch (err) {
       console.error('Error starting scanner:', err);
-      let errorMsg = 'Failed to start camera. ';
-      
-      if (err.name === 'NotAllowedError' || err.message?.includes('permission')) {
-        errorMsg += 'Please allow camera access and try again.';
-      } else if (err.name === 'NotFoundError' || err.message?.includes('camera')) {
-        errorMsg += 'No camera found. Please check your device.';
-      } else if (err.message?.includes('NotReadableError')) {
-        errorMsg += 'Camera is already in use by another application.';
-      } else {
-        errorMsg += 'Please check permissions and try again.';
-      }
-      
-      setError(errorMsg);
+      setError('Failed to start camera. Please try again.');
       setIsScanning(false);
       setScanStatus('Camera error');
     }
@@ -150,6 +210,13 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
     }
   };
 
+  const handleRetry = () => {
+    setError(null);
+    setScanStatus('Ready to scan');
+    stopScanning();
+    startScanning(); // Restart scanning on retry
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center justify-center p-4">
       <div className="bg-white rounded-lg p-6 max-w-md w-full">
@@ -166,7 +233,17 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
 
         {error && (
           <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            <strong>Error:</strong> {error}
+            <div className="flex justify-between items-start">
+              <div>
+                <strong>Error:</strong> {error}
+              </div>
+              <button 
+                onClick={handleRetry}
+                className="text-sm bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded"
+              >
+                Retry
+              </button>
+            </div>
           </div>
         )}
 
@@ -176,9 +253,14 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
 
         <div className="w-full mb-4 rounded-lg overflow-hidden bg-gray-100 min-h-[300px] flex items-center justify-center relative">
           {!isScanning ? (
-            <div className="text-gray-400 text-center p-8">
+            <div className="text-gray-400 text-center p-8 w-full">
               <div className="text-4xl mb-2">📷</div>
-              <p>Camera preview will appear here</p>
+              <p className="mb-4">Camera preview will appear here</p>
+              <p className="text-sm text-gray-500">
+                {hasCameraPermission === false 
+                  ? "Camera access denied. Please enable camera permission in browser settings." 
+                  : "Initializing camera..."}
+              </p>
             </div>
           ) : (
             <>
@@ -203,7 +285,12 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
           {!isScanning ? (
             <button
               onClick={startScanning}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200"
+              disabled={hasCameraPermission === false}
+              className={`flex-1 font-semibold py-3 px-4 rounded-lg transition duration-200 ${
+                hasCameraPermission === false
+                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 text-white'
+              }`}
               aria-label="Start camera"
             >
               Start Camera
@@ -226,9 +313,14 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
           </button>
         </div>
 
-        <p className="text-sm text-gray-600 mt-4 text-center">
-          Point your camera at the QR code to scan
-        </p>
+        <div className="mt-4 text-sm text-gray-600 text-center">
+          <p>Point your camera at the QR code to scan</p>
+          {hasCameraPermission === false && (
+            <p className="mt-2 text-red-500">
+              Camera access denied. Please enable camera permission in your browser settings.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

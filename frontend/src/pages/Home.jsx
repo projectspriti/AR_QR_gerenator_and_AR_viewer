@@ -9,13 +9,17 @@ const Home = () => {
   const handleScanSuccess = (decodedText) => {
     setShowScanner(false);
     // Check if it's an AR viewer URL
-    if (decodedText.includes('/ar-view/ar-view.html')) {
-      // Extract model parameter if present
-      window.location.href = decodedText;
-    } else {
-      // Try to open as AR viewer URL
-      window.location.href = decodedText;
+    let targetUrl = decodedText;
+    
+    // Add auto-activation parameter to enable automatic AR camera activation
+    if (targetUrl.includes('/ar-view/ar-view.html')) {
+      // Check if URL already has query parameters
+      const separator = targetUrl.includes('?') ? '&' : '?';
+      targetUrl = `${targetUrl}${separator}auto=1`;
     }
+    
+    // Redirect immediately while we still have user gesture context
+    window.location.href = targetUrl;
   };
 
   return (

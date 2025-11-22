@@ -196,7 +196,7 @@
     <div class="container">
         <div class="header">
             <h1>🎯 AR 3D Model Viewer</h1>
-            <p>Tap anywhere after loading to open camera and find a flat surface</p>
+            <p id="headerMessage">Tap anywhere after loading to open camera and find a flat surface</p>
         </div>
         
         <div class="https-warning" id="httpsWarning">
@@ -225,9 +225,10 @@
     </div>
 
     <script type="module">
-        // Get model URL from query parameter
+        // Get model URL and auto-activation flag from query parameters
         const urlParams = new URLSearchParams(window.location.search);
         const modelUrl = urlParams.get('model');
+        const autoActivate = urlParams.get('auto') === '1'; // Auto-activate AR if coming from QR scan
 
         if (!modelUrl) {
             document.getElementById('arViewer').innerHTML = `
@@ -264,13 +265,73 @@
             const arStatus = document.getElementById('arStatus');
             const loading = document.getElementById('loading');
             
-            // Handle loading
+            // Handle loading and auto-activate if coming from QR scan
             let modelLoaded = false;
+            let userGestureValid = true; // Assume gesture context is valid when coming from QR scan
+            
             modelViewer.addEventListener('load', () => {
                 loading.style.display = 'none';
                 arStatus.classList.add('active');
                 modelLoaded = true;
-                arStatus.textContent = '✅ Model loaded. Tap anywhere to open camera and find a surface.';
+                
+                // If auto-activate flag is set (from QR scan), try to activate AR immediately
+                if (autoActivate && userGestureValid) {
+                    const headerMessage = document.getElementById('headerMessage');
+                    if (headerMessage) {
+                        headerMessage.textContent = 'Activating AR camera automatically...';
+                    }
+                    arStatus.textContent = '📷 Activating camera automatically...';
+                    arStatus.className = 'ar-status active detecting';
+                    
+                    // Try to activate AR immediately after model loads (within user gesture context)
+                    // Use multiple attempts with increasing delays to work around timing issues
+                    const attempts = [50, 150, 300, 500];
+                    attempts.forEach((delay, index) => {
+                        setTimeout(() => {
+                            try {
+                                if (modelViewer.canActivateAR) {
+                                    modelViewer.activateAR();
+                                    arStatus.textContent = '📷 Opening camera...';
+                                    if (headerMessage) {
+                                        headerMessage.textContent = 'Camera active - Find a flat surface';
+                                    }
+                                    return;
+                                } else {
+                                    // Try to find and click AR button
+                                    const arButton = modelViewer.shadowRoot?.querySelector('button[ar-button]');
+                                    if (arButton) {
+                                        arButton.click();
+                                        arStatus.textContent = '📷 Opening camera...';
+                                        if (headerMessage) {
+                                            headerMessage.textContent = 'Camera active - Find a flat surface';
+                                        }
+                                        return;
+                                    }
+                                }
+                                
+                                // If this is the last attempt and still failed
+                                if (index === attempts.length - 1) {
+                                    arStatus.textContent = '✅ Model loaded. Tap anywhere to open camera.';
+                                    if (headerMessage) {
+                                        headerMessage.textContent = 'Tap anywhere to activate camera';
+                                    }
+                                    userGestureValid = false;
+                                }
+                            } catch (error) {
+                                console.log(`Auto-activation attempt ${index + 1}:`, error.message);
+                                if (index === attempts.length - 1) {
+                                    arStatus.textContent = '✅ Model loaded. Tap anywhere to open camera.';
+                                    if (headerMessage) {
+                                        headerMessage.textContent = 'Tap anywhere to activate camera';
+                                    }
+                                    userGestureValid = false;
+                                }
+                            }
+                        }, delay);
+                    });
+                } else {
+                    arStatus.textContent = '✅ Model loaded. Tap anywhere to open camera and find a surface.';
+                }
             });
 
             modelViewer.addEventListener('error', (e) => {
@@ -335,23 +396,38 @@
                 httpsWarning.classList.add('show');
             }
             
-            // Check WebXR support and prepare for auto-AR activation
+            // Check WebXR support and log auto-activation status
             if ('xr' in navigator) {
                 navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
                     if (!supported) {
                         console.warn('WebXR AR not supported, will use scene-viewer fallback');
-                        arStatus.textContent = '📱 Tap "View in AR" to open camera';
+                        if (!autoActivate) {
+                            arStatus.textContent = '📱 Tap "View in AR" to open camera';
+                        }
                     } else {
-                        console.log('WebXR AR is supported! Will auto-activate after model loads.');
+                        console.log('WebXR AR is supported!', autoActivate ? 'Will auto-activate after model loads.' : 'Ready for AR.');
                     }
                 }).catch(() => {
                     console.warn('Could not check WebXR support');
                 });
             } else {
                 console.warn('WebXR API not available');
-                if (window.location.protocol === 'https:') {
+                if (window.location.protocol === 'https:' && !autoActivate) {
                     arStatus.textContent = '📱 Tap "View in AR" to open camera';
                 }
+            }
+            
+            // If auto-activate is enabled, try immediate activation on page load
+            // This uses the user gesture context from the redirect
+            if (autoActivate) {
+                console.log('Auto-activation enabled: Will activate AR when model loads');
+                // Update header message
+                const headerMessage = document.getElementById('headerMessage');
+                if (headerMessage) {
+                    headerMessage.textContent = 'Camera will activate automatically after loading...';
+                }
+                // Mark that we're in auto-activation mode
+                window.arAutoActivate = true;
             }
             
             // Global click/touch handler to activate AR when user taps anywhere
@@ -388,11 +464,17 @@
                 }, 200);
             };
             
-            // Listen for user interaction anywhere on the page
-            document.addEventListener('click', activateAROnUserInteraction, { once: false });
-            document.addEventListener('touchstart', activateAROnUserInteraction, { once: false });
+            // Listen for user interaction anywhere on the page (fallback if auto-activate fails)
+            // Only add these if auto-activation didn't work
+            setTimeout(() => {
+                if (!arActivationAttempted && modelLoaded) {
+                    document.addEventListener('click', activateAROnUserInteraction, { once: false });
+                    document.addEventListener('touchstart', activateAROnUserInteraction, { once: false });
+                    viewerContainer.addEventListener('click', activateAROnUserInteraction);
+                }
+            }, 2000); // Wait 2 seconds to see if auto-activation worked
             
-            // Also make the entire viewer clickable
+            // Also make the entire viewer clickable as immediate fallback
             viewerContainer.addEventListener('click', activateAROnUserInteraction);
         }
     </script>

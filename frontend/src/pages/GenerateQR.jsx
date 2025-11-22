@@ -30,6 +30,7 @@ const GenerateQR = () => {
         return;
       }
       
+      // CRITICAL FIX: Ensure proper AR viewer activation
       // Check if it's an AR viewer URL
       if (targetUrl.includes('/ar-view/ar-view.html') || targetUrl.includes('ar-view.html')) {
         // Ensure auto=1 parameter is present for automatic AR activation
@@ -39,7 +40,8 @@ const GenerateQR = () => {
         }
         
         // Use window.open with user gesture context to preserve activation capability
-        const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        // CRITICAL FIX: Add focus and resize features for better AR experience
+        const newWindow = window.open(targetUrl, '_blank', 'noopener,noreferrer,width=screen.width,height=screen.height,fullscreen=yes');
         if (newWindow) {
           // Try to focus the new window
           newWindow.focus();

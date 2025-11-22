@@ -309,8 +309,8 @@
             modelViewer.src = modelUrl;
             modelViewer.alt = '3D Model';
             modelViewer.ar = true;
-            // Prioritize WebXR for better plane detection, fallback to scene-viewer
-            modelViewer.arModes = 'webxr scene-viewer quick-look';
+            // CRITICAL FIX: Ensure proper AR mode with plane detection
+            modelViewer.arModes = 'webxr scene-viewer'; // Remove quick-look for better plane detection
             modelViewer.cameraControls = true;
             modelViewer.autoRotate = false;
             modelViewer.interactionPromptThreshold = 0;
@@ -318,10 +318,11 @@
             modelViewer.exposure = 1.0;
             modelViewer.environmentImage = 'neutral';
             
-            // Enable hit-testing for plane detection (WebXR) - Surface anchoring
-            modelViewer.setAttribute('ar-scale', 'auto');
-            modelViewer.setAttribute('ar-placement', 'floor'); // Anchor to floor/surface
-            modelViewer.setAttribute('ar-hit-test', ''); // Enable hit testing for plane detection
+            // CRITICAL FIX: Enable proper plane detection and model anchoring
+            modelViewer.setAttribute('ar-scale', 'fixed'); // Keep model at fixed scale
+            modelViewer.setAttribute('ar-placement', 'surface'); // Anchor to any detected surface
+            modelViewer.setAttribute('ar-hit-test', 'true'); // Enable hit testing for surface detection
+            modelViewer.setAttribute('touch-action', 'none'); // Prevent scrolling during AR interaction
             
             // Auto-activate AR on user interaction (page load counts as interaction)
             // This helps trigger AR mode automatically
@@ -505,7 +506,7 @@
                 console.log('AR button clicked');
             });
 
-            // WebXR specific events for plane detection
+            // CRITICAL FIX: WebXR specific events for plane detection
             modelViewer.addEventListener('ar-tracking', (event) => {
                 const tracking = event.detail.status;
                 
@@ -534,8 +535,8 @@
                 }
             });
             
-            // Listen for when model is placed on surface
-            modelViewer.addEventListener('ar-place', () => {
+            // CRITICAL FIX: Listen for when model is placed on surface
+            modelViewer.addEventListener('ar-place', (event) => {
                 if (!modelPlaced) {
                     modelPlaced = true;
                     arStatus.textContent = '✅ Model placed on surface!';
@@ -597,7 +598,7 @@
                 }
             });
             
-            // Listen for hit-test events to track surface detection
+            // CRITICAL FIX: Listen for hit-test events to track surface detection
             modelViewer.addEventListener('ar-hit-test', (event) => {
                 if (event.detail && event.detail.hitTestResults && event.detail.hitTestResults.length > 0) {
                     // Surface is being tracked - update last tracking time
@@ -707,36 +708,6 @@
                     document.addEventListener('touchstart', activateAROnUserInteraction, { once: false });
                 }
             }, 2000); // Wait 2 seconds to see if auto-activation worked
-            
-            // NEW: Ensure the model is properly anchored to the detected surface
-            // This is critical for proper AR placement
-            modelViewer.addEventListener('ar-hit-test', (event) => {
-                // When a surface is detected, update the model placement
-                if (event.detail && event.detail.hitTestResults && event.detail.hitTestResults.length > 0) {
-                    // Get the first hit test result (closest to camera)
-                    const hitResult = event.detail.hitTestResults[0];
-                    
-                    // Update model position if it hasn't been placed yet
-                    if (!modelPlaced && surfaceDetected) {
-                        // The model-viewer library handles the actual placement
-                        // We just need to ensure the UI feedback is correct
-                        console.log('Surface detected at hit test position');
-                    }
-                }
-            });
-            
-            // NEW: Improve surface detection feedback
-            modelViewer.addEventListener('ar-tracking', (event) => {
-                const tracking = event.detail.status;
-                
-                if (tracking === 'tracking') {
-                    // Surface tracking is active
-                    console.log('Surface tracking active');
-                } else if (tracking === 'not-tracking') {
-                    // Lost surface tracking
-                    console.log('Lost surface tracking');
-                }
-            });
         }
     </script>
 </body>

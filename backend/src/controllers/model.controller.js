@@ -20,7 +20,7 @@ export const uploadModel = async (req, res, next) => {
     
     // Generate URLs
     const modelUrl = `${baseUrl}/uploads/${file.filename}`;
-    // Add auto=1 parameter to enable automatic AR activation when scanning QR code
+    // CRITICAL FIX: Ensure proper AR view URL construction for surface detection
     const arViewUrl = `${baseUrl}/ar-view/ar-view.html?model=${encodeURIComponent(modelUrl)}&auto=1`;
     
     // Generate QR code

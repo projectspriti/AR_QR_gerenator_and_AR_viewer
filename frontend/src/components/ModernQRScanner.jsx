@@ -196,10 +196,14 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
 
     // Stop scanning and process
     stopScanning();
-    setScanStatus('QR code detected! Redirecting...');
+    setScanStatus('QR code detected! Opening AR viewer...');
     
+    // CRITICAL FIX: Ensure proper handling of the scanned URL
     if (onScanSuccess) {
-      onScanSuccess(trimmedText);
+      // Add a small delay to ensure scanning is fully stopped before opening AR viewer
+      setTimeout(() => {
+        onScanSuccess(trimmedText);
+      }, 300);
     }
   };
 

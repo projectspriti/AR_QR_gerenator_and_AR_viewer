@@ -7,8 +7,11 @@ const ARViewerLoader = () => {
 
   useEffect(() => {
     if (modelUrl) {
+      // Get base backend URL from VITE_API_URL (remove /api if present)
+      const apiUrl = import.meta.env.VITE_API_URL || 'https://ar-viewer.onrender.com/api';
+      const baseUrl = apiUrl.replace('/api', '');
       // Redirect to the AR viewer page
-      const arViewUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/ar-view/ar-view.html?model=${encodeURIComponent(modelUrl)}`;
+      const arViewUrl = `${baseUrl}/ar-view/ar-view.html?model=${encodeURIComponent(modelUrl)}`;
       window.location.href = arViewUrl;
     }
   }, [modelUrl]);

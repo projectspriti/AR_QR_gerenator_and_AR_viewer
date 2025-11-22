@@ -33,10 +33,10 @@ This guide will help you deploy the AR Viewer application to Render (backend) an
    ```
    NODE_ENV=production
    BACKEND_URL=https://ar-viewer.onrender.com
-   FRONTEND_URL=https://your-frontend-url.vercel.app,http://localhost:5173
+   FRONTEND_URL=https://arviewer-five.vercel.app,http://localhost:5173
    ```
    
-   **Important**: Replace `https://your-frontend-url.vercel.app` with your actual Vercel frontend URL after deploying the frontend.
+   **Note**: Your Vercel frontend URL is `https://arviewer-five.vercel.app`
 
 4. **Configure Persistent Disk (for file uploads)**
    - Go to "Disks" section

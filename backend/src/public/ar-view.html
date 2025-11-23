@@ -338,25 +338,43 @@
             modelViewer.alt = '3D Model';
             modelViewer.ar = true;
             
-            // PERFECT AR CONFIGURATION
-            modelViewer.arModes = 'webxr scene-viewer'; // Prioritize WebXR for best plane detection
+            // Enhanced AR Configuration
+            modelViewer.arModes = 'webxr scene-viewer quick-look';
             modelViewer.cameraControls = true;
             modelViewer.autoRotate = false;
+            modelViewer.interactionPrompt = 'touch';
             modelViewer.interactionPromptThreshold = 0;
-            modelViewer.shadowIntensity = 1;
-            modelViewer.exposure = 1.0;
+            modelViewer.shadowIntensity = 1.5;
+            modelViewer.exposure = 1.2;
             modelViewer.environmentImage = 'neutral';
-            modelViewer.touchAction = 'none'; // Prevent scrolling during AR
+            modelViewer.touchAction = 'none';
+            modelViewer.reveal = 'auto';
+            modelViewer.autoPlay = true;
             
-            // PERFECT SURFACE DETECTION AND PLACEMENT
-            modelViewer.setAttribute('ar-scale', 'fixed'); // Keep model at fixed scale
-            modelViewer.setAttribute('ar-placement', 'surface'); // Anchor to detected surface
-            modelViewer.setAttribute('ar-hit-test', 'true'); // Enable hit testing
+            // Improved Surface Detection and Placement
+            modelViewer.setAttribute('ar', 'true');
+            modelViewer.setAttribute('ar-placement', 'floor');
+            modelViewer.setAttribute('ar-modes', 'webxr scene-viewer quick-look');
+            modelViewer.setAttribute('ar-scale', 'auto');
+            modelViewer.setAttribute('ar-placement', 'floor');
+            modelViewer.setAttribute('ar-hit-test', 'true');
+            modelViewer.setAttribute('ar-placement', 'floor');
+            modelViewer.setAttribute('ar-detect-properties', 'true');
             
-            // PERFECT VISUAL ENHANCEMENTS
-            modelViewer.setAttribute('quick-look-browsers', 'safari chrome');
-            modelViewer.setAttribute('interaction-policy', 'allow-when-focused');
-            modelViewer.setAttribute('camera-orbit', '0deg 50deg 2m'); // Initial camera position
+            // Visual and Interaction Settings
+            modelViewer.setAttribute('camera-controls', '');
+            modelViewer.setAttribute('camera-orbit', '0deg 75deg 2.5m');
+            modelViewer.setAttribute('field-of-view', '30deg');
+            modelViewer.setAttribute('shadow-softness', '1');
+            modelViewer.setAttribute('shadow-intensity', '1')
+            modelViewer.setAttribute('environment-intensity', '1');
+            modelViewer.setAttribute('skybox-image', 'https://modelviewer.dev/shared-assets/environments/spruit_sunrise_1k_HDR.hdr');
+            
+            // Optimize for mobile
+            modelViewer.setAttribute('interaction-prompt', 'auto');
+            modelViewer.setAttribute('interaction-policy', 'allow-when-focused')
+            modelViewer.setAttribute('interaction-prompt-style', 'wiggle');
+            modelViewer.setAttribute('interaction-prompt-threshold', '1000');
             
             const arStatus = document.getElementById('arStatus');
             const loading = document.getElementById('loading');
@@ -499,31 +517,55 @@
                 }
             });
             
-            // PERFECT SURFACE DETECTION
+            // Enhanced Surface Detection
             modelViewer.addEventListener('ar-tracking', (event) => {
                 const tracking = event.detail.status;
                 
-                if (tracking === 'tracking' && arSessionActive && !modelPlaced) {
-                    if (!surfaceDetected) {
-                        surfaceDetected = true;
-                        arStatus.textContent = '🎯 Surface detected! Tap to place model.';
-                        arStatus.className = 'ar-status active detected';
-                        surfaceIndicator.classList.add('active');
-                        placementReticle.classList.add('active');
-                        if (headerMessage) {
-                            headerMessage.textContent = 'Surface detected! Tap anywhere to place the model';
+                if (tracking === 'tracking' && arSessionActive) {
+                    // Get hit test results for better surface detection
+                    modelViewer.hitTest(0.5, 0.5).then((hitTestResults) => {
+                        if (hitTestResults.length > 0 && !modelPlaced) {
+                            if (!surfaceDetected) {
+                                surfaceDetected = true;
+                                arStatus.textContent = '🎯 Surface detected!';
+                                arStatus.className = 'ar-status active detected';
+                                surfaceIndicator.textContent = 'Tap to place model';
+                                surfaceIndicator.classList.add('active');
+                                placementReticle.classList.add('active');
+                                
+                                // Auto-place the model after a short delay if not placed manually
+                                setTimeout(() => {
+                                    if (!modelPlaced && surfaceDetected) {
+                                        modelViewer.dispatchEvent(new CustomEvent('select'));
+                                    }
+                                }, 2000);
+                            }
                         }
-                    }
+                    }).catch(console.error);
                 } else if (tracking === 'not-tracking') {
                     surfaceDetected = false;
-                    surfaceIndicator.classList.remove('active');
                     if (arSessionActive && !modelPlaced) {
-                        arStatus.textContent = '🔍 Move device slowly to detect surface...';
+                        arStatus.textContent = '🔍 Move device to detect surface...';
                         arStatus.className = 'ar-status active detecting';
-                        if (headerMessage) {
-                            headerMessage.textContent = 'Move camera to find a flat surface';
-                        }
+                        surfaceIndicator.textContent = 'Move device to detect a flat surface';
+                        surfaceIndicator.classList.add('active');
                     }
+                }
+            });
+            
+            // Handle tap to place model
+            modelViewer.addEventListener('select', () => {
+                if (surfaceDetected && !modelPlaced) {
+                    modelPlaced = true;
+                    arStatus.textContent = '✅ Model placed!';
+                    surfaceIndicator.textContent = 'Model placed!';
+                    surfaceIndicator.classList.add('active');
+                    placementReticle.classList.remove('active');
+                    
+                    // Hide the indicator after a delay
+                    setTimeout(() => {
+                        surfaceIndicator.classList.remove('active');
+                    }, 2000);
                 }
             });
             
@@ -557,16 +599,43 @@
                 httpsWarning.classList.add('show');
             }
             
-            // PERFECT AR ACTIVATION FUNCTION
+            // Enhanced AR Activation and Model Placement
             function activateAR() {
-                if (!modelLoaded) return;
+                if (!modelLoaded) {
+                    arStatus.textContent = '⚠️ Model not fully loaded yet...';
+                    return;
+                }
+                
+                // Reset placement state
+                modelPlaced = false;
+                surfaceDetected = false;
                 
                 arStatus.textContent = '📷 Starting AR camera...';
                 arStatus.className = 'ar-status active detecting';
+                surfaceIndicator.textContent = '🔍 Move device to detect a flat surface...';
+                surfaceIndicator.classList.add('active');
                 
                 try {
-                    if (modelViewer.canActivateAR) {
-                        modelViewer.activateAR();
+                    if (modelViewer.activateAR) {
+                        // Configure AR session with better defaults
+                        modelViewer.arScale = 'auto';
+                        modelViewer.arPlacement = 'floor';
+                        modelViewer.interactionPrompt = 'touch';
+                        
+                        // Start AR session
+                        modelViewer.activateAR().then(() => {
+                            console.log('AR session started successfully');
+                            // Add a slight delay to ensure AR session is fully initialized
+                            setTimeout(() => {
+                                if (!modelPlaced) {
+                                    arStatus.textContent = '🔍 Move device to detect surface...';
+                                    surfaceIndicator.textContent = '🔍 Move device to detect a flat surface...';
+                                }
+                            }, 1000);
+                        }).catch(err => {
+                            console.error('AR activation failed:', err);
+                            arStatus.textContent = '❌ Failed to start AR: ' + (err.message || 'Unknown error');
+                        });
                     } else {
                         // Fallback: Try clicking AR button programmatically
                         const arButton = modelViewer.shadowRoot?.querySelector('button[ar-button]');

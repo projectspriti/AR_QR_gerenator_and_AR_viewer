@@ -97,6 +97,7 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
       setError(null);
       setScanStatus('Initializing camera...');
       isProcessingRef.current = false;
+      setIsScanning(true);
       
       // Request camera permission
       const stream = await requestCameraPermission();
@@ -222,110 +223,129 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 z-50 flex flex-col items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-2xl font-bold text-gray-800">Scan QR Code</h2>
-          <button
-            onClick={handleClose}
-            className="text-gray-600 hover:text-gray-800 text-2xl"
-            aria-label="Close scanner"
-          >
-            ✕
-          </button>
+    <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-50 p-4">
+      <div className="bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-700">
+        {/* Header */}
+        <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center space-x-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              </svg>
+              <h2 className="text-xl font-bold">Scan QR Code</h2>
+            </div>
+            <button 
+              onClick={onClose}
+              className="text-white hover:bg-white hover:bg-opacity-20 p-2 rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-white focus:ring-opacity-50"
+              aria-label="Close scanner"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
-
-        {error && (
-          <div className="mb-4 p-3 bg-red-100 border border-red-400 text-red-700 rounded">
-            <div className="flex justify-between items-start">
-              <div>
-                <strong>Error:</strong> {error}
+        
+        {/* Scanner Area */}
+        <div className="relative p-4 bg-black">
+          {/* Camera Preview */}
+          <div className="relative w-full aspect-square bg-gray-900 rounded-xl overflow-hidden border-2 border-gray-700">
+            <video
+              ref={videoRef}
+              className={`w-full h-full object-cover ${!isScanning ? 'opacity-50' : ''}`}
+              playsInline
+              muted
+              autoPlay
+            />
+            
+            {/* Scanner Frame */}
+            <div className="absolute inset-0 flex items-center justify-center p-4">
+              <div className="relative w-full max-w-xs h-64 border-4 border-white rounded-xl">
+                {/* Corner borders */}
+                <div className="absolute -top-1 -left-1 w-12 h-12 border-t-4 border-l-4 border-blue-400 rounded-tl-lg"></div>
+                <div className="absolute -top-1 -right-1 w-12 h-12 border-t-4 border-r-4 border-blue-400 rounded-tr-lg"></div>
+                <div className="absolute -bottom-1 -left-1 w-12 h-12 border-b-4 border-l-4 border-blue-400 rounded-bl-lg"></div>
+                <div className="absolute -bottom-1 -right-1 w-12 h-12 border-b-4 border-r-4 border-blue-400 rounded-br-lg"></div>
+                
+                {/* Animated scanning line */}
+                {isScanning && (
+                  <div className="absolute top-0 left-0 w-full h-1 bg-blue-400 animate-scan rounded-full" style={{
+                    animation: 'scan 2s linear infinite',
+                    boxShadow: '0 0 10px rgba(96, 165, 250, 0.8)'
+                  }}></div>
+                )}
+                
+                {/* Grid overlay */}
+                <div className="absolute inset-0 opacity-20">
+                  <div className="absolute top-1/2 left-0 right-0 h-px bg-white"></div>
+                  <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white"></div>
+                </div>
               </div>
-              <button 
-                onClick={handleRetry}
-                className="text-sm bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded"
-              >
-                Retry
-              </button>
+            </div>
+            
+            {/* Status overlay */}
+            <div className={`absolute bottom-0 left-0 right-0 p-3 text-center transition-all duration-300 ${
+              error ? 'bg-red-600/80' : 'bg-black/70'
+            }`}>
+              <p className={`text-sm font-medium ${
+                error ? 'text-red-100' : 'text-white'
+              }`}>
+                {error || scanStatus}
+              </p>
+              {!isScanning && !error && (
+                <button
+                  onClick={startScanning}
+                  className="mt-2 px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors flex items-center mx-auto"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  Start Scanning
+                </button>
+              )}
             </div>
           </div>
-        )}
-
-        <div className="mb-2 text-sm text-gray-600 text-center">
-          {scanStatus}
-        </div>
-
-        <div className="w-full mb-4 rounded-lg overflow-hidden bg-gray-100 min-h-[300px] flex items-center justify-center relative">
-          {!isScanning ? (
-            <div className="text-gray-400 text-center p-8 w-full">
-              <div className="text-4xl mb-2">📷</div>
-              <p className="mb-4">Initializing camera...</p>
-              <p className="text-sm text-gray-500">
-                {hasCameraPermission === false 
-                  ? "Camera access denied. Please enable camera permission in browser settings." 
-                  : "Please allow camera access when prompted"}
-              </p>
-            </div>
-          ) : (
-            <>
-              <video 
-                ref={videoRef}
-                className="w-full h-full object-cover"
-                playsInline
-                muted
-              />
-              <canvas 
-                ref={canvasRef}
-                className="hidden"
-              />
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div className="border-2 border-white rounded-lg w-64 h-64 opacity-50"></div>
-              </div>
-            </>
-          )}
-        </div>
-
-        <div className="flex gap-3">
-          {!isScanning ? (
-            <button
-              onClick={startScanning}
-              disabled={hasCameraPermission === false}
-              className={`flex-1 font-semibold py-3 px-4 rounded-lg transition duration-200 ${
-                hasCameraPermission === false
-                  ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700 text-white'
-              }`}
-              aria-label="Start camera"
+          
+          {/* Help text */}
+          <div className="mt-4 text-center text-gray-300 text-sm">
+            <p>Position the QR code within the frame to scan</p>
+            <p className="text-xs text-gray-500 mt-1">Make sure there's enough light and the code is clear</p>
+          </div>
+          
+          {/* Manual input option */}
+          <div className="mt-4 text-center">
+            <button 
+              onClick={() => {
+                const manualInput = prompt('Enter the model URL or ID:');
+                if (manualInput) {
+                  onScanSuccess(manualInput);
+                }
+              }}
+              className="text-blue-400 hover:text-blue-300 text-sm font-medium flex items-center justify-center space-x-1 mx-auto"
             >
-              Start Camera
+              <span>Enter code manually</span>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
             </button>
-          ) : (
-            <button
-              onClick={stopScanning}
-              className="flex-1 bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200"
-              aria-label="Stop scanning"
-            >
-              Stop Scanning
-            </button>
-          )}
-          <button
-            onClick={handleClose}
-            className="flex-1 bg-gray-600 hover:bg-gray-700 text-white font-semibold py-3 px-4 rounded-lg transition duration-200"
-            aria-label="Close scanner"
-          >
-            Close
-          </button>
-        </div>
-
-        <div className="mt-4 text-sm text-gray-600 text-center">
-          <p>Point your camera at the QR code to scan</p>
-          {hasCameraPermission === false && (
-            <p className="mt-2 text-red-500">
-              Camera access denied. Please enable camera permission in your browser settings.
-            </p>
-          )}
+          </div>
         </div>
       </div>
+      
+      {/* Canvas for QR code processing (hidden) */}
+      <canvas ref={canvasRef} className="hidden" />
+      
+      <style jsx global>{`
+        @keyframes scan {
+          0% { transform: translateY(0); opacity: 0; }
+          10% { opacity: 1; }
+          90% { opacity: 1; }
+          100% { transform: translateY(calc(100% - 1rem)); opacity: 0; }
+        }
+        .animate-scan {
+          animation: scan 2s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 };

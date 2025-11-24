@@ -40,7 +40,6 @@ const modelSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    index: true, // Index for faster lookups
   },
   
   // QR Code ID (short unique identifier)
@@ -48,7 +47,6 @@ const modelSchema = new mongoose.Schema({
     type: String,
     required: true,
     unique: true,
-    index: true,
   },
   
   // Metadata
@@ -84,8 +82,8 @@ const modelSchema = new mongoose.Schema({
 });
 
 // Index for faster queries
-modelSchema.index({ qrCodeId: 1 });
-modelSchema.index({ qrCodeData: 1 });
+// Note: qrCodeId and qrCodeData already have indexes from unique: true
+// Only add index for isActive since it doesn't have unique constraint
 modelSchema.index({ isActive: 1 });
 
 // Method to update access count

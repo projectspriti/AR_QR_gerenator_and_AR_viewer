@@ -3,17 +3,16 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ar_qr_models';
+const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/ar_qr_scanner';
 
 /**
  * Connect to MongoDB Atlas
  */
 export const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    // Note: useNewUrlParser and useUnifiedTopology are no longer needed in Mongoose v6+
+    // They are now the default behavior
+    const conn = await mongoose.connect(MONGODB_URI);
 
     console.log(`MongoDB Connected: ${conn.connection.host}`);
     return conn;

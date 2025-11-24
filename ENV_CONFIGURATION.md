@@ -36,18 +36,24 @@ NODE_ENV=production
 BACKEND_URL=https://ar-viewer.onrender.com
 FRONTEND_URL=https://your-frontend-url.vercel.app,http://localhost:5173
 PORT=(auto-set by Render)
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/ar_qr_models?retryWrites=true&w=majority
 ```
 
-**Important**: Replace `https://your-frontend-url.vercel.app` with your actual Vercel frontend URL after deploying.
+**Important**: 
+- Replace `https://your-frontend-url.vercel.app` with your actual Vercel frontend URL after deploying.
+- Replace `MONGODB_URI` with your MongoDB Atlas connection string (see MONGODB_SETUP.md for details).
 
 ### For Local Development:
-The `.env.example` file in `backend/` directory shows:
+Create a `.env` file in `backend/` directory:
 ```
 PORT=5000
-BACKEND_URL=https://ar-viewer.onrender.com
+BACKEND_URL=http://localhost:5000
 FRONTEND_URL=http://localhost:5173
 NODE_ENV=development
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/ar_qr_models?retryWrites=true&w=majority
 ```
+
+**Note**: See `MONGODB_SETUP.md` for detailed MongoDB Atlas setup instructions.
 
 ## Configuration Files
 
@@ -64,6 +70,8 @@ NODE_ENV=development
 - ✅ CORS configured for production and development
 - ✅ All environment variables properly referenced in code
 - ✅ Deployment configurations ready
+- ✅ MongoDB Atlas integration for QR code storage and matching
+- ✅ WebXR/AR.js technology for perfect AR experience
 
 ## Quick Verification
 

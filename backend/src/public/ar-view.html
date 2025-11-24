@@ -338,8 +338,8 @@
             modelViewer.alt = '3D Model';
             modelViewer.ar = true;
             
-            // Enhanced AR Configuration
-            modelViewer.arModes = 'webxr scene-viewer quick-look';
+            // Enhanced AR Configuration - WebXR prioritized for best AR experience
+            modelViewer.arModes = 'webxr scene-viewer quick-look'; // WebXR first for perfect plane detection
             modelViewer.cameraControls = true;
             modelViewer.autoRotate = false;
             modelViewer.interactionPrompt = 'touch';

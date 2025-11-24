@@ -1,17 +1,63 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ModernQRScanner from '../components/ModernQRScanner';
+import api from '../api/api';
 
 const Home = () => {
   const navigate = useNavigate();
   const [showScanner, setShowScanner] = useState(false);
+  const [isMatching, setIsMatching] = useState(false);
 
-  const handleScanSuccess = (decodedText) => {
+  const handleScanSuccess = async (decodedText) => {
     try {
       setShowScanner(false);
+      setIsMatching(true);
+      
+      const qrData = decodedText.trim();
+      
+      // First, try to match with database
+      try {
+        const response = await api.post('/models/match-qr', { qrData });
+        
+        if (response.data.success && response.data.model) {
+          const model = response.data.model;
+          
+          // Use the AR view URL from the database
+          let targetUrl = model.arViewUrl;
+          
+          // Ensure auto=1 parameter is present for automatic AR activation
+          if (!targetUrl.includes('auto=1')) {
+            const separator = targetUrl.includes('?') ? '&' : '?';
+            targetUrl = `${targetUrl}${separator}auto=1`;
+          }
+          
+          setIsMatching(false);
+          
+          // PERFECT AR VIEWER: Open in fullscreen for the best experience
+          const newWindow = window.open(
+            targetUrl, 
+            '_blank', 
+            'noopener,noreferrer,width=screen.width,height=screen.height,fullscreen=yes'
+          );
+          if (newWindow) {
+            // Try to focus the new window
+            newWindow.focus();
+          } else {
+            // Fallback if popup blocked
+            window.location.href = targetUrl;
+          }
+          return;
+        }
+      } catch (error) {
+        // If database matching fails, try direct URL approach
+        console.log('Database matching failed, trying direct URL:', error.response?.data || error.message);
+      }
+      
+      // Fallback: Direct URL handling (for backward compatibility)
+      setIsMatching(false);
       
       // Validate and normalize the URL
-      let targetUrl = decodedText.trim();
+      let targetUrl = qrData;
       
       // If it's a relative URL, make it absolute
       if (targetUrl.startsWith('/')) {
@@ -23,7 +69,7 @@ const Home = () => {
       try {
         new URL(targetUrl);
       } catch (e) {
-        alert('Invalid QR code URL. Please scan a valid AR viewer QR code.');
+        alert('Invalid QR code. The QR code does not match any model in the database and is not a valid URL.');
         setShowScanner(true);
         return;
       }
@@ -56,6 +102,7 @@ const Home = () => {
       }
     } catch (error) {
       console.error('Error handling scan success:', error);
+      setIsMatching(false);
       alert('Error processing QR code. Please try again.');
       setShowScanner(true);
     }
@@ -155,8 +202,25 @@ const Home = () => {
       {showScanner && (
         <ModernQRScanner
           onScanSuccess={handleScanSuccess}
-          onClose={() => setShowScanner(false)}
+          onClose={() => {
+            setShowScanner(false);
+            setIsMatching(false);
+          }}
         />
+      )}
+
+      {isMatching && (
+        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-8 max-w-md text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <h2 className="text-xl font-bold text-gray-800 mb-2">
+              Matching QR Code...
+            </h2>
+            <p className="text-gray-600">
+              Looking up model in database...
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

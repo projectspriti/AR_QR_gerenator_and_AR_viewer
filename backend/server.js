@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import modelRoutes from './src/routes/model.routes.js';
 import errorHandler from './src/middlewares/errorHandler.js';
+import { connectDB } from './src/config/database.js';
 
 dotenv.config();
 
@@ -59,8 +60,22 @@ app.get('/api/health', (req, res) => {
 // Error handling middleware
 app.use(errorHandler);
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
-  console.log(`Uploads directory: ${path.join(__dirname, 'uploads')}`);
-});
+// Connect to MongoDB and start server
+const startServer = async () => {
+  try {
+    // Connect to MongoDB
+    await connectDB();
+    
+    // Start server
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Uploads directory: ${path.join(__dirname, 'uploads')}`);
+      console.log('MongoDB connected and ready');
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();

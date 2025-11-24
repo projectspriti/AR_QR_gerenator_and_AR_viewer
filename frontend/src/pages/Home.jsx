@@ -10,7 +10,7 @@ const Home = () => {
 
   const handleScanSuccess = async (decodedText) => {
     try {
-      setShowScanner(false);
+      // Don't close scanner immediately - wait for successful processing
       setIsMatching(true);
       
       const qrData = decodedText.trim();
@@ -31,6 +31,8 @@ const Home = () => {
             targetUrl = `${targetUrl}${separator}auto=1`;
           }
           
+          // Close scanner and matching indicator before opening AR viewer
+          setShowScanner(false);
           setIsMatching(false);
           
           // PERFECT AR VIEWER: Open in fullscreen for the best experience
@@ -51,6 +53,7 @@ const Home = () => {
       } catch (error) {
         // If database matching fails, try direct URL approach
         console.log('Database matching failed, trying direct URL:', error.response?.data || error.message);
+        // Continue to fallback - don't show error yet
       }
       
       // Fallback: Direct URL handling (for backward compatibility)
@@ -69,10 +72,14 @@ const Home = () => {
       try {
         new URL(targetUrl);
       } catch (e) {
+        setIsMatching(false);
         alert('Invalid QR code. The QR code does not match any model in the database and is not a valid URL.');
-        setShowScanner(true);
+        // Keep scanner open for retry
         return;
       }
+      
+      // Close scanner before navigating
+      setShowScanner(false);
       
       // PERFECT AR VIEWER: Enhanced handling for the perfect AR experience
       // Check if it's an AR viewer URL
@@ -104,7 +111,7 @@ const Home = () => {
       console.error('Error handling scan success:', error);
       setIsMatching(false);
       alert('Error processing QR code. Please try again.');
-      setShowScanner(true);
+      // Keep scanner open for retry
     }
   };
 
@@ -206,6 +213,7 @@ const Home = () => {
             setShowScanner(false);
             setIsMatching(false);
           }}
+          key={showScanner ? 'scanner-open' : 'scanner-closed'}
         />
       )}
 

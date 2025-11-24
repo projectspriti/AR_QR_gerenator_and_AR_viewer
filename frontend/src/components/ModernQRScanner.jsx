@@ -223,7 +223,7 @@ const ModernQRScanner = ({ onScanSuccess, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-black bg-opacity-90 flex flex-col items-center justify-center z-[9999] p-4">
       <div className="bg-gray-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-gray-700">
         {/* Header */}
         <div className="p-4 bg-gradient-to-r from-blue-600 to-indigo-700 text-white">
